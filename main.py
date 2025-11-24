@@ -1,41 +1,74 @@
 import curses
+import time
 from curses import window, wrapper
 
 
-def drawbox(stdscr: window):
-    rows, cols = stdscr.getmaxyx()
-    top, bottom, left, right = 0, rows - 1, 0, cols - 1
+def drawscore(stdscr: window, y: int, x: int, score: int):
+    rep = [
+        ("███", "█ █", "█ █", "█ █", "███"),
+        ("  █", "  █", "  █", "  █", "  █"),
+        ("███", "  █", "███", "█  ", "███"),
+        ("███", "  █", "███", "  █", "███"),
+        ("█ █", "█ █", "███", "  █", "  █"),
+        ("███", "█  ", "███", "  █", "███"),
+        ("███", "█  ", "███", "█ █", "███"),
+        ("███", "  █", "  █", "  █", "  █"),
+        ("███", "█ █", "███", "█ █", "███"),
+        ("███", "█ █", "███", "  █", "███"),
+    ]
 
-    # ===== draw lines =====
-    stdscr.hline(top, left + 1, curses.ACS_HLINE, cols - 2)
-    stdscr.hline(bottom, left + 1, curses.ACS_HLINE, cols - 2)
-
-    stdscr.vline(top + 1, left, curses.ACS_VLINE, rows - 2)
-    stdscr.vline(top + 1, right, curses.ACS_VLINE, rows - 2)
-
-    # ===== draw corners =====
-    stdscr.addch(top, left, curses.ACS_ULCORNER)
-    stdscr.addch(bottom, left, curses.ACS_LLCORNER)
-
-    try:
-        stdscr.addch(top, right, curses.ACS_URCORNER)
-        stdscr.addch(bottom, right, curses.ACS_LRCORNER)
-    except curses.error:
-        pass
+    for idx, seg in enumerate(rep[score]):
+        stdscr.addstr(y + idx, x, seg)
 
     stdscr.refresh()
 
 
-def main(stdscr: window):
+def drawplyr(stdscr: window, y: int, x: int):
+    for i in range(5):
+        stdscr.addstr(y + i, x, "█")
+    stdscr.refresh()
+
+
+def drawsetup(stdscr: window, y: int, x: int):
     stdscr.clear()
+    rows, cols = stdscr.getmaxyx()
+
+    stdscr.border()
+
+    # ==== scoreboard ====
+    n = 0
+    drawscore(stdscr, 1, cols // 4, n)
+    drawscore(stdscr, 1, cols // 2 + cols // 4, n)
+
+    # ==== middle div ====
+    stdscr.vline(0, cols // 2, curses.ACS_BLOCK, rows)
+    stdscr.refresh
+
+    # ==== player ====
+    drawplyr(stdscr, y, x)
+
+    # ==== enemy ====
+    drawplyr(stdscr, rows // 2 - 2, cols - 3)
+
+
+def main(stdscr: window):
     curses.curs_set(0)
 
-    drawbox(stdscr)
+    rows, _ = stdscr.getmaxyx()
+    y, x = rows // 2 - 2, 3
 
     while True:
+        drawsetup(stdscr, y, x)
+
         ch = stdscr.getch()
         if ch in (ord("q"), ord("Q")):
             break
+        if ch == curses.KEY_UP:
+            y -= 1
+        if ch == curses.KEY_DOWN:
+            y += 1
+
+        drawplyr(stdscr, y, x)
 
 
 wrapper(main)
