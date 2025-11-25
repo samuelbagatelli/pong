@@ -1,4 +1,5 @@
 import curses
+import time
 from curses import window, wrapper
 
 
@@ -17,9 +18,7 @@ class Position(Vector):
 
             return Position(y, x)
         else:
-            raise TypeError(
-                "Can only add Vector objects (and it's children) to a Position"
-            )
+            raise TypeError("Can only add Vector objects to a Position")
 
 
 class Score:
@@ -54,8 +53,13 @@ class Character:
         self.pos = Vector(y, x)
         self.score = 0
 
-    def move(self, y: int):
-        self.pos.y += y
+    def move(self, y: int, lbnd: int):
+        if self.pos.y + y < 0:
+            self.pos.y = 0
+        elif self.pos.y + y + self.LENGTH > lbnd:
+            self.pos.y = lbnd - self.LENGTH
+        else:
+            self.pos.y += y
 
     def draw(self, screen: window):
         for i in range(self.LENGTH):
@@ -66,24 +70,42 @@ class Player(Character):
     pass
 
 
-class OutOfBoundsError(Exception):
-    def __init__(self, message="Ball is out of bounds"):
-        super().__init__(message)
+class ScoreException(Exception):
+    def __init__(self, xpos):
+        self.xpos = xpos
+        super().__init__("Ball out")
+
+
+def iswall(pos: Position, rows: int):
+    return pos.y == 0 or pos.y == rows
 
 
 class Ball:
     def __init__(self, y: int, x: int):
         self.pos = Position(y, x)
-        self.vel = Vector(0, 0)
+        self.vel = Vector(-1, 1)
 
     def draw(self, screen: window):
         screen.addstr(self.pos.y, self.pos.x, "⬤")
 
-    def move(self):
-        try:
-            self.pos += self.vel
-        except ValueError:
-            raise OutOfBoundsError()
+    def move(self, rows: int):
+        new = self.pos + self.vel
+        if iswall(new, rows):
+            self.bounce()
+        else:
+            try:
+                self.pos = new
+            except curses.error:
+                raise ScoreException(self.pos.x)
+
+    def accelerate(self, velocity: int):
+        self.vel += velocity
+
+    def stop(self):
+        self.vel = 0
+
+    def bounce(self):
+        self.vel.y *= -1
 
 
 class Game:
@@ -96,6 +118,7 @@ class Game:
 
     def init(self):
         curses.curs_set(0)
+        self.screen.nodelay(True)
 
         self.rows, self.cols = self.screen.getmaxyx()
 
@@ -133,7 +156,13 @@ class Game:
         self.init()
 
         while self.running:
+            time.sleep(1 / 10)
+
             self.draw()
+            try:
+                self.ball.move(self.rows)
+            except ScoreException:
+                pass
 
             ch = self.screen.getch()
             self.procinput(ch)
@@ -143,9 +172,9 @@ class Game:
             self.running = False
 
         if ch == curses.KEY_UP:
-            self.player.move(-1)
+            self.player.move(-1, self.rows)
         if ch == curses.KEY_DOWN:
-            self.player.move(+1)
+            self.player.move(+1, self.rows)
 
 
 wrapper(Game().main)
